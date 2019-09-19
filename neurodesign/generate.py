@@ -92,22 +92,22 @@ def iti(ntrials,model,min=None,mean=None,max=None,lam=None,resolution=0.1,seed=1
 
     return smp,lam
 
+
 def _fix_iti(smp,mean,min,max,resolution):
-    # kind of a weird function to fix ITI's to have the nominal mean
-    # problem was that you can't just add or subtract the difference: it could be
-    # out of bounds of the minimum and the maximum...
-    # now it changes values either to min/max or with the average difference
-    # compute diff
+    from scipy.optimize import minimize, Bounds
     smp = resolution*np.round(smp/resolution)
-    totaldiff = np.sum(smp) - mean*len(smp)
-    while not np.isclose(totaldiff,0,resolution) and np.mean(smp)>mean:
-        chid = np.random.choice(len(smp))
-        if (smp[chid]-min)<resolution or (max-smp[chid])<resolution:
-             continue
-        else:
-             smp[chid] = smp[chid]-np.sign(totaldiff)*resolution
-        totaldiff = np.sum(smp) - mean*len(smp)
-    return smp
+    def check_mean(x, mean):
+        return np.abs(np.mean(x) - mean)
+
+    smp_optimised = minimize(check_mean,
+                             smp,
+                             args=(mean,),
+                             bounds=Bounds(min, max)).x
+
+    smp_round = resolution*np.round(smp_optimised / resolution)
+
+    return smp_round
+
 
 def _compute_lambda(lower,upper,mean):
     a = float(lower)
