@@ -98,15 +98,25 @@ def _fix_iti(smp,mean,min,max,resolution):
     smp = resolution*np.round(smp/resolution)
     def check_mean(x, mean):
         return np.abs(np.mean(x) - mean)
-
+    
+    # make our best initial guess
     smp_optimised = minimize(check_mean,
                              smp,
                              args=(mean,),
-                             bounds=Bounds(min, max)).x
-
-    smp_round = resolution*np.round(smp_optimised / resolution)
-
-    return smp_round
+                             bounds=Bounds(min, max, keep_feasible=True)).x
+    # clip anything that was above max or below min
+    smp_optimised = np.clip(smp_optimised, min, max)
+    # round to the design resolution
+    smp_init = resolution*np.round(smp_optimised / resolution)
+    totaldiff = (np.sum(smp_init) - mean*len(smp_init)) / len(smp_init) 
+    while not np.isclose(totaldiff,0,resolution) and np.mean(smp_init)>mean:
+        chid = np.random.choice(len(smp_init))
+        if (smp_init[chid]-min)<resolution or (max-smp_init[chid])<resolution:
+             continue
+        else:
+             smp_init[chid] = smp_init[chid]-np.sign(totaldiff)*resolution
+        totaldiff = (np.sum(smp_init) - mean*len(smp_init)) / len(smp_init)
+    return smp_init
 
 
 def _compute_lambda(lower,upper,mean):
